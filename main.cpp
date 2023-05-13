@@ -4,6 +4,14 @@
 
 
 #include <sstream>
+#include <iostream>
+#include <pqxx/pqxx>
+#include <nlohmann/json.hpp>
+
+using namespace std;
+using namespace pqxx;
+
+using json = nlohmann::json;
 
 class ExampleLogHandler : public crow::ILogHandler {
     public:
@@ -43,6 +51,49 @@ struct ExampleMiddleware
 
 int main()
 {
+    std::string sql;
+    try{
+        // Set up connection parameters
+        std::string host = "ec2-63-34-16-201.eu-west-1.compute.amazonaws.com";
+        std::string port = "5432";
+        std::string dbname = "dcfr7a3le1omi";
+        std::string user = "fcexicqnrtdcrl";
+        std::string password = "563e7c0243b32fe9cd7b512ea8032ce87dfcb5263f902e6cd2bb299546c151e2";
+
+        // Create connection string
+        std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + password;
+        
+        // Create a connection to the database
+        pqxx::connection conn(conn_string);
+
+        if (conn.is_open())
+        {
+            std::cout << "Connected to database successfully!" << std::endl;
+            
+        }else{
+            std::cout << "Connection to database failed" << std::endl;
+        }
+
+        sql = "SELECT user_id, user_email, user_password FROM users";
+        pqxx::work w(conn);
+       pqxx::result rows = w.exec(sql);
+        /* List down all the records */
+     for (int i = 0 ; i < rows.size(); i++){
+        int id = rows[i].at("user_id").as<int>();
+        string email = rows[i].at("user_email").as<string>();
+        string password = rows[i].at("user_password").as<string>();
+        cout << id << ", " << email << ", " << password << endl;
+     }
+      cout << "Operation done successfully" << endl;
+      conn.disconnect ();
+   
+    } catch (const std::exception &e) {
+        cerr << e.what() << std::endl;
+        return 1;
+   }
+    
+    
+    
     crow::App<ExampleMiddleware> app;
 
     app.get_middleware<ExampleMiddleware>().setMessage("hello");
@@ -63,6 +114,51 @@ int main()
     ([](){
         return "Trailing slash test case..";
     });
+    
+
+   CROW_ROUTE(app, "/users")
+    ([]{
+        // Set up connection parameters
+        std::string host = "ec2-63-34-16-201.eu-west-1.compute.amazonaws.com";
+        std::string port = "5432";
+        std::string dbname = "dcfr7a3le1omi";
+        std::string user = "fcexicqnrtdcrl";
+        std::string password = "563e7c0243b32fe9cd7b512ea8032ce87dfcb5263f902e6cd2bb299546c151e2";
+
+        // Create connection string
+        std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + password;
+        pqxx::connection conn(conn_string);
+        
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT user_id, user_email, user_password FROM users");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                crow::json::wvalue user;
+                user["user_id"] = row["user_id"].as<int>();
+                user["user_email"] = row["user_email"].as<std::string>();
+                user["user_password"] = row["user_password"].as<std::string>();
+                json_data[row["user_id"].as<int>()] = std::move(user);
+            }
+
+            crow::response response{json_data};
+        
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+
+    
 
 
     // simple json response
@@ -168,6 +264,6 @@ int main()
 
     app.port(18080)
         .multithreaded()
-        .ssl_file("cert.crt", "private.key")
+        //.ssl_file("cert.crt", "private.key")
         .run();
 }
