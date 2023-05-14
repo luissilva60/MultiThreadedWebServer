@@ -725,7 +725,7 @@ int main()
         }
     });
     
-/*                                                         COMPLETED ROUTES                                     */
+/*                                                         TRAILS ROUTES                                     */
 
     CROW_ROUTE(app, "/trails")
     ([]{
@@ -768,6 +768,153 @@ int main()
         }
     });
 
+
+   
+
+    CROW_ROUTE(app, "/trails/<int>")
+    .methods("GET"_method)
+    ([&](const crow::request& req, int trail_id) {
+        pqxx::connection conn(conn_string);
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("SELECT trail_id, trail_name, trail_start, trail_end, trail_checkpoint_id FROM trails WHERE trail_id = $1", trail_id);
+            txn.commit();
+
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Trail not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            Trail trail;
+            trail.trail_id = result[0]["trail_id"].as<int>();
+            trail.trail_name = result[0]["trail_name"].as<std::string>();
+            trail.trail_start = result[0]["trail_start"].as<std::string>();
+            trail.trail_end = result[0]["trail_end"].as<std::string>();
+            trail.trail_checkpoint_id = result[0]["trail_checkpoint_id"].as<int>();
+
+            crow::response response{trail};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+
+    CROW_ROUTE(app, "/trails")
+    .methods("PUT"_method)
+    ([&](const crow::request& req){
+        pqxx::connection conn(conn_string);
+       
+        try {
+            // Parse JSON payload
+            auto json_payload = crow::json::load(req.body);
+            if (!json_payload) {
+                throw std::runtime_error("Invalid JSON payload");
+            }
+
+            // Extract trail data from payload
+            Trail trail;
+            trail.trail_id = json_payload["trail_id"].i();
+            trail.trail_name = std::string(json_payload["trail_name"].s());
+            trail.trail_start = std::string(json_payload["trail_start"].s());
+            trail.trail_end = std::string(json_payload["trail_end"].s());
+            trail.trail_checkpoint_id = json_payload["trail_checkpoint_id"].i();
+
+            // Start outer transaction
+            pqxx::work txn(conn);
+
+            // Check if trail exists
+            pqxx::result check_result = txn.exec_params("SELECT COUNT(*) FROM trails WHERE trail_id = $1", trail.trail_id);
+            int count = check_result[0]["count"].as<int>();
+            if (count == 0) {
+                throw std::runtime_error("Trail not found");
+            }
+
+            // Start inner transaction for update
+            pqxx::subtransaction update_txn(txn, "update");
+
+            // Update trail
+            pqxx::result result = update_txn.exec_params("UPDATE trails SET trail_name = $2, trail_start = $3, trail_end = $4, trail_checkpoint_id = $5 WHERE trail_id = $1 RETURNING trail_id",
+                                                   trail.trail_id,
+                                                   trail.trail_name,
+                                                   trail.trail_start,
+                                                   trail.trail_end,
+                                                   trail.trail_checkpoint_id);
+            update_txn.commit();
+
+            // Commit outer transaction
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            json_data["trail_id"] = result[0]["trail_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            conn.disconnect();
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+
+
+    CROW_ROUTE(app, "/trails/<int>")
+    .methods("DELETE"_method)
+    ([&](int trail_id){
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("WITH deleted_completed AS (DELETE FROM completed WHERE completed_trail_id = $1 RETURNING completed_trail_id) DELETE FROM trails WHERE trail_id = $1 RETURNING trail_id, trail_name, trail_start, trail_end, trail_checkpoint_id", trail_id);
+            txn.commit();
+
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Trail not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            Trail trail;
+            trail.trail_id = result[0]["trail_id"].as<int>();
+            trail.trail_name = result[0]["trail_name"].as<std::string>();
+            trail.trail_start = result[0]["trail_start"].as<std::string>();
+            trail.trail_end = result[0]["trail_end"].as<std::string>();
+            trail.trail_checkpoint_id = result[0]["trail_checkpoint_id"].as<int>();
+
+            crow::json::wvalue json_data;
+            json_data["trail_id"] = result[0]["trail_id"].as<int>();
+
+            crow::response response{"Operation Sucessful",json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+/*                                                         AREAS ROUTES                                     */
 
     CROW_ROUTE(app, "/areas")
     ([]{
