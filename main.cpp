@@ -2,8 +2,13 @@
 #define CROW_ENABLE_SSL
 #include "crow.h"
 
+#include <crow/logging.h>
 
-
+#include<chrono>
+#include<iomanip>
+#include <fstream>
+#include <signal.h>
+#include <unistd.h>
 
 #include <sstream>
 #include <iostream>
@@ -46,46 +51,44 @@ struct Completed {
     int completed_challenged_id;
 };
 
-struct ExampleMiddleware 
-{
+struct ExampleMiddleware  {
     std::string message;
-
-    ExampleMiddleware() 
-    {
+    ExampleMiddleware() {
         message = "foo";
     }
-
-    void setMessage(std::string newMsg)
-    {
-        message = newMsg;
-    }
-
-    struct context
-    {
+    struct context {
         // Store the start time of the request processing
         std::chrono::system_clock::time_point start_time;
         // Store the IP address of the client making the request
         std::string client_ip;
     };
 
-    void before_handle(crow::request& req, crow::response& res, context& ctx)
-    {
-        // Log the start time of the request processing
-        ctx.start_time = std::chrono::system_clock::now();
-        // Log the IP address of the client making the request
-        ctx.client_ip = req.get_header_value("X-Real-IP");
+    
 
-        CROW_LOG_INFO << "[REQUEST] " << req.method << " " << req.raw_url << " FROM " << ctx.client_ip;
+    void setMessage(std::string newMsg) {
+        message = newMsg;
     }
 
-    void after_handle(crow::request& req, crow::response& res, context& ctx)
-    {
+    void before_handle(crow::request& req, crow::response& res, context& ctx){
+    // Log the start time of the request processing
+    ctx.start_time = std::chrono::system_clock::now();
+    // Log the IP address of the client making the request
+    ctx.client_ip = req.remote_ip_address;
+
+
+
+    CROW_LOG_INFO << "[REQUEST] " << crow::method_name(req.method) << " " << req.url << " FROM " << std::string(ctx.client_ip)<< " ON THREAD " << std::this_thread::get_id();;
+
+}
+
+
+    void after_handle(crow::request& req, crow::response& res, context& ctx) {
         // Log the duration of the request processing
         auto end_time = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end_time - ctx.start_time;
 
-        CROW_LOG_INFO << "[RESPONSE] " << res.code << " " << req.method << " " << req.raw_url
-                      << " FROM " << ctx.client_ip << " IN " << elapsed_seconds.count() << " SECONDS";
+        CROW_LOG_INFO << "[RESPONSE] " << std::to_string(res.code) << " " << crow::method_name(req.method) << " " << req.url
+            << " FROM " << std::string(ctx.client_ip) << " IN " << elapsed_seconds.count() << " SECONDS";
     }
 };
 int main()
@@ -135,9 +138,41 @@ int main()
     const size_t num_threads = 10;
     asio::thread_pool thread_pool(num_threads);
     crow::App<ExampleMiddleware> app(&thread_pool);
+
+    
     
 
     app.get_middleware<ExampleMiddleware>().setMessage("hello");
+    
+    // added for timing
+    auto start = std::chrono::system_clock::now();
+
+    // added for timestamp
+    std::time_t now = std::chrono::system_clock::to_time_t(start);
+
+    std::cout << "Starting threads at " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S") << std::endl;
+
+    for (int i = 0; i < num_threads; i++)
+    {
+        asio::post(thread_pool, [i]()
+                   {
+                auto start = std::chrono::high_resolution_clock::now();
+                doSomething(i);
+                auto end = std::chrono::high_resolution_clock::now();
+                CROW_LOG_INFO << "Thread " << i << " finished in "
+                    << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+                    << " milliseconds"; });
+    }
+
+    // added for timing
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end - start;
+
+    // added for timestamp
+    now = std::chrono::system_clock::to_time_t(end);
+
+    CROW_LOG_INFO << "All threads finished at " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S");
+    CROW_LOG_INFO << "Elapsed time: " << elapsed_seconds.count() << " seconds";
 
     CROW_ROUTE(app, "/")
         .name("hello")
@@ -354,6 +389,52 @@ int main()
     });
 
 
+    CROW_ROUTE(app, "/user")
+    .methods("POST"_method)
+    ([](const crow::request& req){
+        pqxx::connection conn(conn_string);
+        
+        try {
+            // Parse JSON payload
+            auto json_payload = crow::json::load(req.body);
+            if (!json_payload) {
+                throw std::runtime_error("Invalid JSON payload");
+            }
+
+            // Start outer transaction
+            pqxx::work txn(conn);
+
+            // Insert new user
+            pqxx::result result = txn.exec_params("INSERT INTO users (user_name, user_password, user_email, user_gps, user_role_id) VALUES ($1, $2, $3, $4, $5) RETURNING user_id",
+                                                std::string(json_payload["user_name"].s()),
+                                                std::string(json_payload["user_password"].s()),
+                                                std::string(json_payload["user_email"].s()),
+                                                std::string(json_payload["user_gps"].s()),
+                                                json_payload["user_role_id"].i());
+
+            // Commit transaction
+            txn.commit();
+
+            // Create response JSON
+            crow::json::wvalue json_data;
+            json_data["user_id"] = result[0]["user_id"].as<int>();
+            
+            crow::response response{json_data};
+            response.code = 201;
+            response.set_header("Content-Type", "application/json");
+
+            return response;
+        } catch (const std::exception& e) {
+            conn.disconnect();
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+        
+        
+    });
 
 
     CROW_ROUTE(app, "/users/<int>")
@@ -537,39 +618,13 @@ int main()
     //crow::logger::setHandler(std::make_shared<ExampleLogHandler>());
 
     app.port(18080)
-        .multithreaded()
+        .concurrency(num_threads)
         //.ssl_file("cert.crt", "private.key")
         .run();
 
-    // added for timing
-    auto start = std::chrono::system_clock::now();
+    
 
-    // added for timestamp
-    std::time_t now = std::chrono::system_clock::to_time_t(start);
-
-    std::cout << "Starting threads at " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S") << std::endl;
-
-    for (int i = 0; i < num_threads; i++) {
-        asio::post(thread_pool, [i]() {
-        auto start = std::chrono::high_resolution_clock::now();
-        doSomething(i);
-        auto end = std::chrono::high_resolution_clock::now();
-        std::cout << "Thread " << i << " finished in "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-              << " milliseconds" << std::endl;
-});
-
-    }
-
-    // added for timing
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-
-    // added for timestamp
-    now = std::chrono::system_clock::to_time_t(end);
-
-    std::cout << "All threads finished at " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S") << std::endl;
-    std::cout << "Elapsed time: " << elapsed_seconds.count() << " seconds" << std::endl;
+    
 }
 
 
