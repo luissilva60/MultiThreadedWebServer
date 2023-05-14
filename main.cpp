@@ -13,6 +13,7 @@
 using namespace std;
 using namespace pqxx;
 
+std::string conn_string ="";
 using json = nlohmann::json;
 
 class ExampleLogHandler : public crow::ILogHandler {
@@ -21,6 +22,15 @@ class ExampleLogHandler : public crow::ILogHandler {
 //            cerr << "ExampleLogHandler -> " << message;
         }
 };
+struct User {
+    int user_id;
+    std::string user_name;
+    std::string user_password;
+    std::string user_email;
+    std::string user_gps;
+    int user_role_id;
+};
+
 
 struct ExampleMiddleware 
 {
@@ -63,7 +73,7 @@ int main()
         std::string password = "5433343d3797e83769200119eda5399511d00ef9df9c7d682868e59b1d729c7e";
 
         // Create connection string
-        std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + password;
+        conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + password;
         
         // Create a connection to the database
         pqxx::connection conn(conn_string);
@@ -132,16 +142,6 @@ int main()
             // Get the email and password from the JSON data
             std::string email = json_data["email"].s();
             std::string password = json_data["password"].s();
-
-            // Set up connection parameters
-            std::string host = "ec2-54-76-132-202.eu-west-1.compute.amazonaws.com";
-            std::string port = "5432";
-            std::string dbname = "d7mqnaojamm7jr";
-            std::string user = "yqbjkzhuzzezfs";
-            std::string db_password = "5433343d3797e83769200119eda5399511d00ef9df9c7d682868e59b1d729c7e";
-
-            // Create connection string
-            std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + db_password;
             pqxx::connection conn(conn_string);
 
             // Query the database for the user with the given email and password
@@ -180,31 +180,33 @@ int main()
         }
     });
 
-   CROW_ROUTE(app, "/users")
+    CROW_ROUTE(app, "/users")
     ([]{
-        // Set up connection parameters
-        std::string host = "ec2-54-76-132-202.eu-west-1.compute.amazonaws.com";
-        std::string port = "5432";
-        std::string dbname = "d7mqnaojamm7jr";
-        std::string user = "yqbjkzhuzzezfs";
-        std::string password = "5433343d3797e83769200119eda5399511d00ef9df9c7d682868e59b1d729c7e";
-
-        // Create connection string
-        std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + password;
         pqxx::connection conn(conn_string);
         
         try {
             pqxx::work txn(conn);
-            pqxx::result result = txn.exec("SELECT user_id, user_email, user_password FROM users");
+            pqxx::result result = txn.exec("SELECT user_id, user_name, user_password, user_email, user_gps, user_role_id FROM users");
             txn.commit();
 
             crow::json::wvalue json_data;
             for (const auto& row : result) {
-                crow::json::wvalue user;
-                user["user_id"] = row["user_id"].as<int>();
-                user["user_email"] = row["user_email"].as<std::string>();
-                user["user_password"] = row["user_password"].as<std::string>();
-                json_data[row["user_id"].as<int>()] = std::move(user);
+                User user;
+                user.user_id = row["user_id"].as<int>();
+                user.user_name = row["user_name"].as<std::string>();
+                user.user_password = row["user_password"].as<std::string>();
+                user.user_email = row["user_email"].as<std::string>();
+                user.user_gps = row["user_gps"].as<std::string>();
+                user.user_role_id = row["user_role_id"].as<int>();
+
+                crow::json::wvalue user_json;
+                user_json["user_id"] = user.user_id;
+                user_json["user_name"] = user.user_name;
+                user_json["user_password"] = user.user_password;
+                user_json["user_email"] = user.user_email;
+                user_json["user_gps"] = user.user_gps;
+                user_json["user_role_id"] = user.user_role_id;
+                json_data[user.user_id] = std::move(user_json);
             }
 
             crow::response response{json_data};
@@ -220,9 +222,148 @@ int main()
             return response;
         }
     });
+    CROW_ROUTE(app, "/users/<int>")
+    .methods("GET"_method)
+    ([&](const crow::request& req, int user_id) {
+        pqxx::connection conn(conn_string);
+        try {
+            // Check if user exists
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("SELECT user_id, user_name, user_email, user_gps, user_role_id FROM users WHERE user_id = $1", user_id);
+            txn.commit();
+
+            // If user doesn't exist, return 404 response
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "User not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            // Extract user data and construct response
+            int id = result[0]["user_id"].as<int>();
+            std::string name = result[0]["user_name"].as<std::string>();
+            std::string email = result[0]["user_email"].as<std::string>();
+            std::string gps = result[0]["user_gps"].as<std::string>();
+            int role_id = result[0]["user_role_id"].as<int>();
+
+            crow::json::wvalue json_data;
+            json_data["user_id"] = id;
+            json_data["user_name"] = name;
+            json_data["user_email"] = email;
+            json_data["user_gps"] = gps;
+            json_data["user_role_id"] = role_id;
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/users")
+    .methods("PUT"_method)
+    ([&](const crow::request& req){
+        pqxx::connection conn(conn_string);
+        
+        try {
+            // Parse JSON payload
+            auto json_payload = crow::json::load(req.body);
+            if (!json_payload) {
+                throw std::runtime_error("Invalid JSON payload");
+            }
+
+            // Extract user ID from payload
+            int user_id = json_payload["user_id"].i();
+
+            // Start outer transaction
+            pqxx::work txn(conn);
+
+            // Check if user exists
+            pqxx::result check_result = txn.exec_params("SELECT COUNT(*) FROM users WHERE user_id = $1", user_id);
+            int count = check_result[0]["count"].as<int>();
+            if (count == 0) {
+                throw std::runtime_error("User not found");
+            }
+
+            // Start inner transaction for update
+            pqxx::subtransaction update_txn(txn, "update");
+
+            // Update user
+            pqxx::result result = update_txn.exec_params("UPDATE users SET user_name = $2, user_password = $3, user_email = $4, user_gps = $5, user_role_id = $6 WHERE user_id = $1 RETURNING user_id", 
+                                                   user_id,
+                                                   std::string(json_payload["user_name"].s()),
+                                                   std::string(json_payload["user_password"].s()),
+                                                   std::string(json_payload["user_email"].s()),
+                                                   std::string(json_payload["user_gps"].s()),
+                                                   json_payload["user_role_id"].i());
+            update_txn.commit();
+
+            // Commit outer transaction
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            json_data["user_id"] = result[0]["user_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            conn.disconnect();
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
 
 
-    
+
+
+    CROW_ROUTE(app, "/users/<int>")
+    .methods("DELETE"_method)
+    ([&](int user_id){
+        pqxx::connection conn(conn_string);
+        
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("WITH deleted_completed AS (DELETE FROM completed WHERE completed_user_id = $1 RETURNING completed_user_id) DELETE FROM users WHERE user_id = $1 RETURNING user_id", user_id);
+            txn.commit();
+
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "User not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            crow::json::wvalue json_data;
+            json_data["user_id"] = result[0]["user_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
 
 
     // simple json response
