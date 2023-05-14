@@ -472,7 +472,7 @@ int main()
         }
     });
 
-
+/*                                                         COMPLETED ROUTES                                     */
     CROW_ROUTE(app, "/completed")
     ([]{
         pqxx::connection conn(conn_string);
@@ -502,6 +502,184 @@ int main()
 
             crow::response response{json_data};
        
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+    CROW_ROUTE(app, "/completed")
+    ([]{
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT completed_id, completed_user_id, completed_checkpoints_id, completed_trail_id, completed_challenged_id FROM completed");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                Completed completed;
+                completed.completed_id = row["completed_id"].as<int>();
+                completed.completed_user_id = row["completed_user_id"].as<int>();
+                completed.completed_checkpoints_id = row["completed_checkpoints_id"].as<int>();
+                completed.completed_trail_id = row["completed_trail_id"].as<int>();
+                completed.completed_challenged_id = row["completed_challenged_id"].as<int>();
+
+                crow::json::wvalue completed_json;
+                completed_json["completed_id"] = completed.completed_id;
+                completed_json["completed_user_id"] = completed.completed_user_id;
+                completed_json["completed_checkpoints_id"] = completed.completed_checkpoints_id;
+                completed_json["completed_trail_id"] = completed.completed_trail_id;
+                completed_json["completed_challenged_id"] = completed.completed_challenged_id;
+
+                json_data[completed.completed_id] = std::move(completed_json);
+            }
+
+            crow::response response{json_data};
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/completed/<int>")
+    .methods("GET"_method)
+    ([&](const crow::request& req, int completed_id) {
+        pqxx::connection conn(conn_string);
+        try {
+            // Check if completed entry exists
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("SELECT completed_id, completed_user_id, completed_checkpoints_id, completed_trail_id, completed_challenged_id FROM completed WHERE completed_id = $1", completed_id);
+            txn.commit();
+
+            // If completed entry doesn't exist, return 404 response
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Completed entry not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            // Extract completed entry data and construct response
+            int id = result[0]["completed_id"].as<int>();
+            int user_id = result[0]["completed_user_id"].as<int>();
+            int checkpoints_id = result[0]["completed_checkpoints_id"].as<int>();
+            int trail_id = result[0]["completed_trail_id"].as<int>();
+            int challenged_id = result[0]["completed_challenged_id"].as<int>();
+
+            crow::json::wvalue json_data;
+            json_data["completed_id"] = id;
+            json_data["completed_user_id"] = user_id;
+            json_data["completed_checkpoints_id"] = checkpoints_id;
+            json_data["completed_trail_id"] = trail_id;
+            json_data["completed_challenged_id"] = challenged_id;
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/completed")
+    .methods("PUT"_method)
+    ([&](const crow::request& req){
+        pqxx::connection conn(conn_string);
+
+        try {
+            // Parse JSON payload
+            auto json_payload = crow::json::load(req.body);
+            if (!json_payload) {
+                throw std::runtime_error("Invalid JSON payload");
+            }
+
+            // Extract completed ID from payload
+            int completed_id = json_payload["completed_id"].i();
+
+            // Start outer transaction
+            pqxx::work txn(conn);
+
+            // Check if completed record exists
+            pqxx::result check_result = txn.exec_params("SELECT COUNT(*) FROM completed WHERE completed_id = $1", completed_id);
+            int count = check_result[0]["count"].as<int>();
+            if (count == 0) {
+                throw std::runtime_error("Completed record not found");
+            }
+
+            // Start inner transaction for update
+            pqxx::subtransaction update_txn(txn, "update");
+
+            // Update completed record
+            pqxx::result result = update_txn.exec_params("UPDATE completed SET completed_user_id = $2, completed_checkpoints_id = $3, completed_trail_id = $4, completed_challenged_id = $5 WHERE completed_id = $1 RETURNING completed_id",
+                                                   completed_id,
+                                                   json_payload["completed_user_id"].i(),
+                                                   json_payload["completed_checkpoints_id"].i(),
+                                                   json_payload["completed_trail_id"].i(),
+                                                   json_payload["completed_challenged_id"].i());
+            update_txn.commit();
+
+            // Commit outer transaction
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            json_data["completed_id"] = result[0]["completed_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            conn.disconnect();
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/completed/<int>")
+    .methods("DELETE"_method)
+    ([&](int completed_id){
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("DELETE FROM completed WHERE completed_id = $1 RETURNING completed_id", completed_id);
+            txn.commit();
+
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Completed record not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            crow::json::wvalue json_data;
+            json_data["completed_id"] = result[0]["completed_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
             response.set_header("Content-Type", "application/json");
             return response;
         } catch (const std::exception& e) {
