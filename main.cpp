@@ -960,9 +960,492 @@ int main()
         }
     });
 
+    CROW_ROUTE(app, "/areas/<int>")
+    .methods("GET"_method)
+    ([&](const crow::request& req, int area_id) {
+        pqxx::connection conn(conn_string);
+        try {
+            // Check if area exists
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("SELECT area_id, area_name, area_gps FROM area WHERE area_id = $1", area_id);
+            txn.commit();
+
+            // If area doesn't exist, return 404 response
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Area not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            // Extract area data and construct response
+            int id = result[0]["area_id"].as<int>();
+            std::string name = result[0]["area_name"].as<std::string>();
+            std::string gps = result[0]["area_gps"].as<std::string>();
+
+            crow::json::wvalue json_data;
+            json_data["area_id"] = id;
+            json_data["area_name"] = name;
+            json_data["area_gps"] = gps;
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/areas")
+    .methods("PUT"_method)
+    ([&](const crow::request& req){
+        pqxx::connection conn(conn_string);
+       
+        try {
+            // Parse JSON payload
+            auto json_payload = crow::json::load(req.body);
+            if (!json_payload) {
+                throw std::runtime_error("Invalid JSON payload");
+            }
+
+            // Extract area ID from payload
+            int area_id = json_payload["area_id"].i();
+
+            // Start outer transaction
+            pqxx::work txn(conn);
+
+            // Check if area exists
+            pqxx::result check_result = txn.exec_params("SELECT COUNT(*) FROM area WHERE area_id = $1", area_id);
+            int count = check_result[0]["count"].as<int>();
+            if (count == 0) {
+                throw std::runtime_error("Area not found");
+            }
+
+            // Start inner transaction for update
+            pqxx::subtransaction update_txn(txn, "update");
+
+            // Update area
+            pqxx::result result = update_txn.exec_params("UPDATE area SET area_name = $2, area_type = $3, area_location = $4 WHERE area_id = $1 RETURNING area_id",
+                                                   area_id,
+                                                   std::string(json_payload["area_name"].s()),
+                                                   std::string(json_payload["area_type"].s()),
+                                                   std::string(json_payload["area_location"].s()));
+            update_txn.commit();
+
+            // Commit outer transaction
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            json_data["area_id"] = result[0]["area_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            conn.disconnect();
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/areas/<int>")
+    .methods("DELETE"_method)
+    ([&](int area_id){
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("DELETE FROM area WHERE area_id = $1 RETURNING area_id", area_id);
+            txn.commit();
+
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Area not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            crow::json::wvalue json_data;
+            json_data["area_id"] = result[0]["area_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
     
 
+/*                                                         CHECKPOINTS ROUTES                                     */
 
+CROW_ROUTE(app, "/checkpoints")
+    ([]{
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT checkpoint_id, ST_AsText(checkpoint_gps) FROM checkpoints");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                Checkpoint checkpoint;
+                checkpoint.checkpoint_id = row["checkpoint_id"].as<int>();
+                checkpoint.checkpoint_gps = row["checkpoint_id"].as<std::string>();
+                crow::json::wvalue checkpoint_json;
+                checkpoint_json["checkpoint_id"] = checkpoint.checkpoint_id;
+                checkpoint_json["checkpoint_gps"] = checkpoint.checkpoint_gps
+               
+                json_data[checkpoint.checkpoint_id] = std::move(checkpoint_json);
+            }
+
+            crow::response response{json_data};
+       
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+CROW_ROUTE(app, "/checkpoints/<int>")
+    .methods("GET"_method)
+    ([&](const crow::request& req, int checkpoint_id) {
+        pqxx::connection conn(conn_string);
+        try {
+            // Check if checkpoint exists
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("SELECT checkpoint_id, checkpoint_gps FROM checkpoints WHERE checkpoint_id = $1", checkpoint_id);
+            txn.commit();
+
+            // If checkpoint doesn't exist, return 404 response
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Checkpoint not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            // Extract checkpoint data and construct response
+            int id = result[0]["checkpoint_id"].as<int>();
+            std::string gps = result[0]["checkpoint_gps"].as<std::string>();
+
+            crow::json::wvalue json_data;
+            json_data["checkpoint_id"] = id;
+            json_data["checkpoint_gps"] = gps;
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+CROW_ROUTE(app, "/checkpoints")
+    .methods("PUT"_method)
+    ([&](const crow::request& req){
+        pqxx::connection conn(conn_string);
+
+        try {
+            // Parse JSON payload
+            auto json_payload = crow::json::load(req.body);
+            if (!json_payload) {
+                throw std::runtime_error("Invalid JSON payload");
+            }
+
+            // Extract checkpoint ID from payload
+            int checkpoint_id = json_payload["checkpoint_id"].i();
+
+            // Start outer transaction
+            pqxx::work txn(conn);
+
+            // Check if checkpoint exists
+            pqxx::result check_result = txn.exec_params("SELECT COUNT(*) FROM checkpoints WHERE checkpoint_id = $1", checkpoint_id);
+            int count = check_result[0]["count"].as<int>();
+            if (count == 0) {
+                throw std::runtime_error("Checkpoint not found");
+            }
+
+            // Start inner transaction for update
+            pqxx::subtransaction update_txn(txn, "update");
+
+            // Update checkpoint
+            pqxx::result result = update_txn.exec_params("UPDATE checkpoints SET c, checkpoint_gps = $2 WHERE checkpoint_id = $1 RETURNING checkpoint_id",
+                                                   checkpoint_id,
+                                                   json_payload["checkpoint_gps"].as<std::string>()
+                                                   );
+            update_txn.commit();
+
+            // Commit outer transaction
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            json_data["checkpoint_id"] = result[0]["checkpoint_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            conn.disconnect();
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+
+CROW_ROUTE(app, "/checkpoints/<int>")
+    .methods("DELETE"_method)
+    ([&](int checkpoint_id){
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("DELETE FROM checkpoints WHERE checkpoint_id = $1 RETURNING checkpoint_id", checkpoint_id);
+            txn.commit();
+
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Checkpoint not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            crow::json::wvalue json_data;
+            json_data["checkpoint_id"] = result[0]["checkpoint_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+/*                                                         Challenge ROUTES                                     */
+    CROW_ROUTE(app, "/challenges")
+    ([]{
+        pqxx::connection conn(conn_string);
+
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT challenge_id, challenge_name, challenge_gps, challenge_points, challenge_trail_id, challenge_area_id FROM challenges");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                Challenge challenge;
+                challenge.challenge_id = row["challenge_id"].as<int>();
+                challenge.challenge_name = row["challenge_name"].as<std::string>();
+                challenge.challenge_gps = row["challenge_gps"].as<std::string>();
+                challenge.challenge_points = row["challenge_points"].as<int>();
+                challenge.challenge_trail_id = row["challenge_trail_id"].as<int>();
+                challenge.challenge_area_id = row["challenge_area_id"].as<int>();
+
+                crow::json::wvalue challenge_json;
+                challenge_json["challenge_id"] = challenge.challenge_id;
+                challenge_json["challenge_name"] = challenge.challenge_name;
+                challenge_json["challenge_gps"] = challenge.challenge_gps;
+                challenge_json["challenge_points"] = challenge.challenge_points;
+                challenge_json["challenge_trail_id"] = challenge.challenge_trail_id;
+                challenge_json["challenge_area_id"] = challenge.challenge_area_id;
+
+                json_data[challenge.challenge_id] = std::move(challenge_json);
+            }
+
+            crow::response response{json_data};
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/challenges/<int>")
+    .methods("GET"_method)
+    ([&](const crow::request& req, int challenge_id) {
+        pqxx::connection conn(conn_string);
+        try {
+            // Check if challenge exists
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("SELECT challenge_id, challenge_name, challenge_gps, challenge_points, challenge_trail_id, challenge_area_id FROM challenges WHERE challenge_id = $1", challenge_id);
+            txn.commit();
+
+            // If challenge doesn't exist, return 404 response
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Challenge not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            // Extract challenge data and construct response
+            int id = result[0]["challenge_id"].as<int>();
+            std::string name = result[0]["challenge_name"].as<std::string>();
+            std::string gps = result[0]["challenge_gps"].as<std::string>();
+            int points = result[0]["challenge_points"].as<int>();
+            int trail_id = result[0]["challenge_trail_id"].as<int>();
+            int area_id = result[0]["challenge_area_id"].as<int>();
+
+            crow::json::wvalue json_data;
+            json_data["challenge_id"] = id;
+            json_data["challenge_name"] = name;
+            json_data["challenge_gps"] = gps;
+            json_data["challenge_points"] = points;
+            json_data["challenge_trail_id"] = trail_id;
+            json_data["challenge_area_id"] = area_id;
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/challenges")
+    .methods("PUT"_method)
+    ([&](const crow::request& req){
+        pqxx::connection conn(conn_string);
+       
+        try {
+            // Parse JSON payload
+            auto json_payload = crow::json::load(req.body);
+            if (!json_payload) {
+                throw std::runtime_error("Invalid JSON payload");
+            }
+
+            // Extract challenge ID from payload
+            int challenge_id = json_payload["challenge_id"].i();
+
+            // Start outer transaction
+            pqxx::work txn(conn);
+
+            // Check if challenge exists
+            pqxx::result check_result = txn.exec_params("SELECT COUNT(*) FROM challenges WHERE challenge_id = $1", challenge_id);
+            int count = check_result[0]["count"].as<int>();
+            if (count == 0) {
+                throw std::runtime_error("Challenge not found");
+            }
+
+            // Start inner transaction for update
+            pqxx::subtransaction update_txn(txn, "update");
+
+            // Update challenge
+            pqxx::result result = update_txn.exec_params("UPDATE challenges SET challenge_name = $2, challenge_gps = $3, challenge_points = $4, challenge_trail_id = $5, challenge_area_id = $6 WHERE challenge_id = $1 RETURNING challenge_id",
+                                                   challenge_id,
+                                                   std::string(json_payload["challenge_name"].s()),
+                                                   json_payload["challenge_gps"].s(),
+                                                   json_payload["challenge_points"].i(),
+                                                   json_payload["challenge_trail_id"].i(),
+                                                   json_payload["challenge_area_id"].i());
+            update_txn.commit();
+
+            // Commit outer transaction
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            json_data["challenge_id"] = result[0]["challenge_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            conn.disconnect();
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/challenges/<int>")
+    .methods("DELETE"_method)
+    ([&](int challenge_id){
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("DELETE FROM challenges WHERE challenge_id = $1 RETURNING challenge_id", challenge_id);
+            txn.commit();
+
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Challenge not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            crow::json::wvalue json_data;
+            json_data["challenge_id"] = result[0]["challenge_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
     // simple json response
     // To see it in action enter {ip}:18080/json
     CROW_ROUTE(app, "/json")
