@@ -31,6 +31,13 @@ struct User {
     int user_role_id;
 };
 
+struct Completed {
+    int completed_id;
+    int completed_user_id;
+    int completed_checkpoints_id;
+    int completed_trail_id;
+    int completed_challenged_id;
+};
 
 struct ExampleMiddleware 
 {
@@ -365,6 +372,48 @@ int main()
     });
 
 
+    CROW_ROUTE(app, "/completed")
+    ([]{
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT completed_id, completed_user_id, completed_checkpoints_id, completed_trail_id, completed_challenged_id  FROM completed");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                Completed completed;
+                completed.completed_id = row["completed_id"].as<int>();
+                completed.completed_user_id = row["completed_user_id"].as<int>();
+                completed.completed_checkpoints_id = row["completed_checkpoints_id"].as<int>();
+                completed.completed_trail_id = row["completed_trail_id"].as<int>();
+                completed.completed_challenged_id = row["completed_challenged_id"].as<int>();
+
+                crow::json::wvalue completed_json;
+                completed_json["completed_id"] = completed.completed_id;
+                completed_json["completed_user_id"] = completed.completed_user_id;
+                completed_json["completed_checkpoints_id"] = completed.completed_checkpoints_id;
+                completed_json["completed_trail_id"] = completed.completed_trail_id;
+                completed_json["completed_challenged_id"] = completed.completed_challenged_id;
+                json_data[completed.completed_id] = std::move(completed_json);
+            }
+
+            crow::response response{json_data};
+       
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+
 
     // simple json response
     // To see it in action enter {ip}:18080/json
@@ -471,6 +520,35 @@ int main()
         .multithreaded()
         //.ssl_file("cert.crt", "private.key")
         .run();
+
+    // added for timing
+    auto start = std::chrono::system_clock::now();
+
+    // added for timestamp
+    std::time_t now = std::chrono::system_clock::to_time_t(start);
+
+    std::cout << "Starting threads at " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S") << std::endl;
+
+    for (int i = 0; i < num_threads; i++) {
+        asio::post(thread_pool, [i]() {
+        auto start = std::chrono::high_resolution_clock::now();
+        auto end = std::chrono::high_resolution_clock::now();
+        std::cout << "Thread " << i << " finished in "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+              << " milliseconds" << std::endl;
+});
+
+    }
+
+    // added for timing
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end-start;
+
+    // added for timestamp
+    now = std::chrono::system_clock::to_time_t(end);
+
+    std::cout << "All threads finished at " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S") << std::endl;
+    std::cout << "Elapsed time: " << elapsed_seconds.count() << " seconds" << std::endl;
 }
 
 
