@@ -51,6 +51,37 @@ struct Completed {
     int completed_challenged_id;
 };
 
+Marchante <salvasmaster@gmail.com>
+21:41 (há 1 hora)
+para mim
+
+struct Challenge {
+    int challenge_id;
+    std::string challenge_name;
+    std::string challenge_gps; // As a string instead of POINT data type
+    int challenge_points;
+    int challenge_trail_id;
+    int challenge_area_id;
+};
+
+struct Trail {
+    int trail_id;
+    std::string trail_name;
+    std::pair<double, double> trail_start;
+    std::pair<double, double> trail_end;
+    int trail_checkpoint_id;
+};
+
+struct Area {
+    int area_id;
+    std::vector<std::pair<double, double>> area_gps;
+};
+
+struct Checkpoint {
+    int checkpoint_id;
+    std::pair<double, double> checkpoint_gps;
+};
+
 struct ExampleMiddleware  {
     std::string message;
     ExampleMiddleware() {
@@ -691,7 +722,214 @@ int main()
             return response;
         }
     });
+    CROW_ROUTE(app, "/completed")
+    .methods("POST"_method)
+    ([](const crow::request& req){
+        pqxx::connection conn(conn_string);
 
+        try {
+            // Parse JSON payload
+            auto json_payload = crow::json::load(req.body);
+            if (!json_payload) {
+                throw std::runtime_error("Invalid JSON payload");
+            }
+
+            // Start outer transaction
+            pqxx::work txn(conn);
+
+            // Insert new completed
+            pqxx::result result = txn.exec_params("INSERT INTO completed (completed_user_id, completed_checkpoints_id, completed_trail_id, completed_challenged_id) VALUES ($1, $2, $3, $4) RETURNING completed_id",
+                                                json_payload["completed_user_id"].i(),
+                                                json_payload["completed_checkpoints_id"].i(),
+                                                json_payload["completed_trail_id"].i(),
+                                                json_payload["completed_challenged_id"].i());
+
+            // Commit transaction
+            txn.commit();
+
+            // Create response JSON
+            crow::json::wvalue json_data;
+            json_data["completed_id"] = result[0]["completed_id"].as<int>();
+
+            crow::response response{json_data};
+            response.code = 201;
+            response.set_header("Content-Type", "application/json");
+
+            return response;
+        } catch (const std::exception& e) {
+            conn.disconnect();
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+    
+/*                                                         COMPLETED ROUTES                                     */
+
+    CROW_ROUTE(app, "/trails")
+    ([]{
+        pqxx::connection conn(conn_string);
+
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT trail_id, trail_name, trail_start, trail_end, trail_checkpoint_id FROM trails");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                Trail trail;
+                trail.trail_id = row["trail_id"].as<int>();
+                trail.trail_name = row["trail_name"].as<std::string>();
+                trail.trail_start = row["trail_start"].as<std::string>();
+                trail.trail_end = row["trail_end"].as<std::string>();
+                trail.trail_checkpoint_id = row["trail_checkpoint_id"].as<int>();
+
+                crow::json::wvalue trail_json;
+                trail_json["trail_id"] = trail.trail_id;
+                trail_json["trail_name"] = trail.trail_name;
+                trail_json["trail_start"] = trail.trail_start;
+                trail_json["trail_end"] = trail.trail_end;
+                trail_json["trail_checkpoint_id"] = trail.trail_checkpoint_id;
+                json_data[trail.trail_id] = std::move(trail_json);
+            }
+
+            crow::response response{json_data};
+
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+
+    CROW_ROUTE(app, "/areas")
+    ([]{
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT area_id, area_name, area_gps FROM area");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                Area area;
+                area.area_id = row["area_id"].as<int>();
+                area.area_name = row["area_name"].as<std::string>();
+                area.area_gps = row["area_gps"].as<std::string>();
+
+                crow::json::wvalue area_json;
+                area_json["area_id"] = area.area_id;
+                area_json["area_name"] = area.area_name;
+                area_json["area_gps"] = area.area_gps;
+                json_data[area.area_id] = std::move(area_json);
+            }
+
+            crow::response response{json_data};
+       
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    CROW_ROUTE(app, "/challenges")
+    ([]{
+        pqxx::connection conn(conn_string);
+
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT challenge_id, challenge_name, challenge_gps, challenge_points, challenge_trail_id, challenge_area_id FROM challenges");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                Challenge challenge;
+                challenge.challenge_id = row["challenge_id"].as<int>();
+                challenge.challenge_name = row["challenge_name"].as<std::string>();
+                challenge.challenge_gps = row["challenge_gps"].as<std::string>();
+                challenge.challenge_points = row["challenge_points"].as<int>();
+                challenge.challenge_trail_id = row["challenge_trail_id"].as<int>();
+                challenge.challenge_area_id = row["challenge_area_id"].as<int>();
+
+                crow::json::wvalue challenge_json;
+                challenge_json["challenge_id"] = challenge.challenge_id;
+                challenge_json["challenge_name"] = challenge.challenge_name;
+                challenge_json["challenge_gps"] = challenge.challenge_gps;
+                challenge_json["challenge_points"] = challenge.challenge_points;
+                challenge_json["challenge_trail_id"] = challenge.challenge_trail_id;
+                challenge_json["challenge_area_id"] = challenge.challenge_area_id;
+
+                json_data[challenge.challenge_id] = std::move(challenge_json);
+            }
+
+            crow::response response{json_data};
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+
+    CROW_ROUTE(app, "/checkpoints")
+    ([]{
+        pqxx::connection conn(conn_string);
+       
+        try {
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec("SELECT checkpoint_id, ST_AsText(checkpoint_gps) FROM checkpoints");
+            txn.commit();
+
+            crow::json::wvalue json_data;
+            for (const auto& row : result) {
+                Checkpoint checkpoint;
+                checkpoint.checkpoint_id = row["checkpoint_id"].as<int>();
+                std::string checkpoint_gps_str = row[1].as<std::string>();
+                std::istringstream iss(checkpoint_gps_str.substr(6));
+                std::string lat_str, lng_str;
+                std::getline(iss, lat_str, ' ');
+                std::getline(iss, lng_str, ')');
+                checkpoint.checkpoint_gps = std::make_pair(std::stod(lat_str), std::stod(lng_str));
+
+                crow::json::wvalue checkpoint_json;
+                checkpoint_json["checkpoint_id"] = checkpoint.checkpoint_id;
+                checkpoint_json["checkpoint_gps"]["lat"] = checkpoint.checkpoint_gps.first;
+                checkpoint_json["checkpoint_gps"]["lng"] = checkpoint.checkpoint_gps.second;
+                json_data[checkpoint.checkpoint_id] = std::move(checkpoint_json);
+            }
+
+            crow::response response{json_data};
+       
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+           
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
 
 
     // simple json response
