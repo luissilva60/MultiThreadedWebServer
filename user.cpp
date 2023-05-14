@@ -1,13 +1,13 @@
 #include <crow.h>
-#include <jwt-cpp/jwt.h>
+#include <jwt.h>
 #include <pqxx/pqxx>
-
 // Define a struct to hold user data
 struct User {
     int id;
     std::string email;
     std::string password;
 };
+std::string generateJwtToken(int user_id);
 
 // Define a secret key for JWT token signing and verification
 const std::string secret = "my_secret_key";
@@ -54,11 +54,11 @@ CROW_ROUTE(app, "/login")
             std::string password = json_data["password"].s();
 
             // Set up connection parameters
-            std::string host = "ec2-63-34-16-201.eu-west-1.compute.amazonaws.com";
+            std::string host = "ec2-54-76-132-202.eu-west-1.compute.amazonaws.com";
             std::string port = "5432";
-            std::string dbname = "dcfr7a3le1omi";
-            std::string user = "fcexicqnrtdcrl";
-            std::string db_password = "563e7c0243b32fe9cd7b512ea8032ce87dfcb5263f902e6cd2bb299546c151e2";
+            std::string dbname = "d7mqnaojamm7jr";
+            std::string user = "yqbjkzhuzzezfs";
+            std::string password = "5433343d3797e83769200119eda5399511d00ef9df9c7d682868e59b1d729c7e";
 
             // Create connection string
             std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + db_password;
@@ -88,3 +88,5 @@ CROW_ROUTE(app, "/login")
             return response;
         }
     });
+    
+    

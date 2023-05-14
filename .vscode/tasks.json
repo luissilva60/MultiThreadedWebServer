@@ -13,7 +13,8 @@
                 "-lssl",
                 "-lcrypto",
                 "-lpqxx",
-                "-lpq"
+                "-lpq",
+                "-ljwt"
             ],
             "options": {
                 "cwd": "${fileDirname}"

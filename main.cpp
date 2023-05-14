@@ -3,12 +3,12 @@
 #include "crow.h"
 
 
+
+
 #include <sstream>
 #include <iostream>
 #include <pqxx/pqxx>
 #include <nlohmann/json.hpp>
-#include <jwt-cpp/jwt.h>
-#include "user.h"
 
 using namespace std;
 using namespace pqxx;
@@ -56,11 +56,11 @@ int main()
     std::string sql;
     try{
         // Set up connection parameters
-        std::string host = "ec2-63-34-16-201.eu-west-1.compute.amazonaws.com";
+        std::string host = "ec2-54-76-132-202.eu-west-1.compute.amazonaws.com";
         std::string port = "5432";
-        std::string dbname = "dcfr7a3le1omi";
-        std::string user = "fcexicqnrtdcrl";
-        std::string password = "563e7c0243b32fe9cd7b512ea8032ce87dfcb5263f902e6cd2bb299546c151e2";
+        std::string dbname = "d7mqnaojamm7jr";
+        std::string user = "yqbjkzhuzzezfs";
+        std::string password = "5433343d3797e83769200119eda5399511d00ef9df9c7d682868e59b1d729c7e";
 
         // Create connection string
         std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + password;
@@ -95,8 +95,10 @@ int main()
    }
     
     
+    const size_t num_threads = 10;
+    asio::thread_pool thread_pool(num_threads);
+    crow::App<ExampleMiddleware> app(&thread_pool);
     
-    crow::App<ExampleMiddleware> app;
 
     app.get_middleware<ExampleMiddleware>().setMessage("hello");
 
@@ -120,93 +122,72 @@ int main()
     CROW_ROUTE(app, "/login")
     .methods("POST"_method)
     ([](const crow::request& req) {
-        // Parse request body for credentials
-        crow::json::rvalue body = crow::json::load(req.body);
-        if (!body) {
-            crow::response response;
-            response.code = 400;
-            response.body = "Invalid request body";
-            response.set_header("Content-Type", "text/plain");
-            return response;
-        }
-        std::string email = body["email"].s();
-        std::string password = body["password"].s();
-
-        // Set up connection parameters
-        std::string host = "ec2-63-34-16-201.eu-west-1.compute.amazonaws.com";
-        std::string port = "5432";
-        std::string dbname = "dcfr7a3le1omi";
-        std::string user = "fcexicqnrtdcrl";
-        std::string db_password = "563e7c0243b32fe9cd7b512ea8032ce87dfcb5263f902e6cd2bb299546c151e2";
-
-        // Create connection string
-        std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + db_password;
-        pqxx::connection conn(conn_string);
-
         try {
+            // Parse the JSON body of the request
+            crow::json::rvalue json_data = crow::json::load(req.body);
+            if (!json_data) {
+                throw std::invalid_argument("Invalid JSON body");
+            }
+
+            // Get the email and password from the JSON data
+            std::string email = json_data["email"].s();
+            std::string password = json_data["password"].s();
+
+            // Set up connection parameters
+            std::string host = "ec2-54-76-132-202.eu-west-1.compute.amazonaws.com";
+            std::string port = "5432";
+            std::string dbname = "d7mqnaojamm7jr";
+            std::string user = "yqbjkzhuzzezfs";
+            std::string db_password = "5433343d3797e83769200119eda5399511d00ef9df9c7d682868e59b1d729c7e";
+
+            // Create connection string
+            std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + db_password;
+            pqxx::connection conn(conn_string);
+
+            // Query the database for the user with the given email and password
             pqxx::work txn(conn);
-
-            // Find user by email
-            pqxx::result result = txn.exec_params(
-                "SELECT user_id, user_password FROM users WHERE user_email = $1",
-                email
-            );
-            if (result.empty()) {
-                txn.commit();
-                crow::response response;
-                response.code = 401;
-                response.body = "Invalid email or password";
-                response.set_header("Content-Type", "text/plain");
-                return response;
-            }
-            std::string hashed_password = result[0]["user_password"].as<std::string>();
-
-            // Verify password
-            if (!bcrypt_checkpw(password.c_str(), hashed_password.c_str())) {
-                txn.commit();
-                crow::response response;
-                response.code = 401;
-                response.body = "Invalid email or password";
-                response.set_header("Content-Type", "text/plain");
-                return response;
-            }
-            int user_id = result[0]["user_id"].as<int>();
-
-            // Generate JWT
-            std::string jwt_secret = "my_jwt_secret";
-            jwt::jwt_object jwt_payload = jwt::create()
-                .set_issuer("my_app")
-                .set_subject(std::to_string(user_id))
-                .set_issued_at(std::chrono::system_clock::now())
-                .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
-                .sign(jwt::algorithm::hs256(jwt_secret));
-
+            pqxx::result result = txn.exec_params("SELECT user_id, user_email, user_password FROM users WHERE user_email = $1 AND user_password = $2", email, password);
             txn.commit();
 
-            crow::response response;
-            response.code = 200;
-            response.body = "Login successful";
-            response.set_header("Content-Type", "text/plain");
-            response.set_header("Authorization", "Bearer " + jwt_payload.signature());
-            return response;
+            // If the user is found, generate a JWT token and return it in the response along with the user object
+            if (!result.empty()) {
+                int user_id = result[0]["user_id"].as<int>();
+                
+                std::string user_email = result[0]["user_email"].as<std::string>();
+                // Generate JWT token
+                //std::string jwt_token = generate_jwt(user_id);
+
+                // Create JSON object with user and token
+                crow::json::wvalue json_response;
+                json_response["user_id"] = user_id;
+                
+                //json_response["jwt"] = jwt_token;
+
+                crow::response response(json_response);
+                response.code = 200;
+                response.set_header("Content-Type", "application/json");
+                return response;
+            } else {
+                throw std::invalid_argument("Invalid email or password");
+            }
         } catch (const std::exception& e) {
             crow::response response;
-            response.code = 500;
+            response.code = 401;
             response.body = e.what();
+
             response.set_header("Content-Type", "text/plain");
             return response;
         }
     });
 
-
-    CROW_ROUTE(app, "/users")
+   CROW_ROUTE(app, "/users")
     ([]{
         // Set up connection parameters
-        std::string host = "ec2-63-34-16-201.eu-west-1.compute.amazonaws.com";
+        std::string host = "ec2-54-76-132-202.eu-west-1.compute.amazonaws.com";
         std::string port = "5432";
-        std::string dbname = "dcfr7a3le1omi";
-        std::string user = "fcexicqnrtdcrl";
-        std::string password = "563e7c0243b32fe9cd7b512ea8032ce87dfcb5263f902e6cd2bb299546c151e2";
+        std::string dbname = "d7mqnaojamm7jr";
+        std::string user = "yqbjkzhuzzezfs";
+        std::string password = "5433343d3797e83769200119eda5399511d00ef9df9c7d682868e59b1d729c7e";
 
         // Create connection string
         std::string conn_string = "host=" + host + " port=" + port + " dbname=" + dbname + " user=" + user + " password=" + password;
@@ -350,3 +331,5 @@ int main()
         //.ssl_file("cert.crt", "private.key")
         .run();
 }
+
+
