@@ -13,8 +13,15 @@
 using namespace std;
 using namespace pqxx;
 
+
 std::string conn_string ="";
 using json = nlohmann::json;
+
+void doSomething(int i) {
+    std::cout << "Thread " << i << " is doing something..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(1)); // simulate some work
+    std::cout << "Thread " << i << " has finished doing something." << std::endl;
+}
 
 class ExampleLogHandler : public crow::ILogHandler {
     public:
@@ -55,19 +62,32 @@ struct ExampleMiddleware
 
     struct context
     {
+        // Store the start time of the request processing
+        std::chrono::system_clock::time_point start_time;
+        // Store the IP address of the client making the request
+        std::string client_ip;
     };
 
-    void before_handle(crow::request& /*req*/, crow::response& /*res*/, context& /*ctx*/)
+    void before_handle(crow::request& req, crow::response& res, context& ctx)
     {
-        CROW_LOG_DEBUG << " - MESSAGE: " << message;
+        // Log the start time of the request processing
+        ctx.start_time = std::chrono::system_clock::now();
+        // Log the IP address of the client making the request
+        ctx.client_ip = req.get_header_value("X-Real-IP");
+
+        CROW_LOG_INFO << "[REQUEST] " << req.method << " " << req.raw_url << " FROM " << ctx.client_ip;
     }
 
-    void after_handle(crow::request& /*req*/, crow::response& /*res*/, context& /*ctx*/)
+    void after_handle(crow::request& req, crow::response& res, context& ctx)
     {
-        // no-op
+        // Log the duration of the request processing
+        auto end_time = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end_time - ctx.start_time;
+
+        CROW_LOG_INFO << "[RESPONSE] " << res.code << " " << req.method << " " << req.raw_url
+                      << " FROM " << ctx.client_ip << " IN " << elapsed_seconds.count() << " SECONDS";
     }
 };
-
 int main()
 {
     std::string sql;
@@ -532,6 +552,7 @@ int main()
     for (int i = 0; i < num_threads; i++) {
         asio::post(thread_pool, [i]() {
         auto start = std::chrono::high_resolution_clock::now();
+        doSomething(i);
         auto end = std::chrono::high_resolution_clock::now();
         std::cout << "Thread " << i << " finished in "
               << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
