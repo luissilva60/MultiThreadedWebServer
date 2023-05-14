@@ -66,7 +66,7 @@ struct Trail {
     std::string trail_name;
     std::string trail_start;
     std::string trail_end;
-    int trail_checkpoint_id;
+
 };
 
 struct Area {
@@ -733,7 +733,7 @@ int main()
 
         try {
             pqxx::work txn(conn);
-            pqxx::result result = txn.exec("SELECT trail_id, trail_name, trail_start, trail_end, trail_checkpoint_id FROM trails");
+            pqxx::result result = txn.exec("SELECT trail_id, trail_name, trail_start, trail_end FROM trails");
             txn.commit();
 
             crow::json::wvalue json_data;
@@ -743,14 +743,13 @@ int main()
                 trail.trail_name = row["trail_name"].as<std::string>();
                 trail.trail_start = row["trail_start"].as<std::string>();
                 trail.trail_end = row["trail_end"].as<std::string>();
-                trail.trail_checkpoint_id = row["trail_checkpoint_id"].as<int>();
-
+            
                 crow::json::wvalue trail_json;
                 trail_json["trail_id"] = trail.trail_id;
                 trail_json["trail_name"] = trail.trail_name;
                 trail_json["trail_start"] = trail.trail_start;
                 trail_json["trail_end"] = trail.trail_end;
-                trail_json["trail_checkpoint_id"] = trail.trail_checkpoint_id;
+        
                 json_data[trail.trail_id] = std::move(trail_json);
             }
 
@@ -777,7 +776,7 @@ int main()
         pqxx::connection conn(conn_string);
         try {
             pqxx::work txn(conn);
-            pqxx::result result = txn.exec_params("SELECT trail_id, trail_name, trail_start, trail_end, trail_checkpoint_id FROM trails WHERE trail_id = $1", trail_id);
+            pqxx::result result = txn.exec_params("SELECT trail_id, trail_name, trail_start, trail_end FROM trails WHERE trail_id = $1", trail_id);
             txn.commit();
 
             if (result.empty()) {
@@ -787,15 +786,22 @@ int main()
                 response.set_header("Content-Type", "text/plain");
                 return response;
             }
-
+            
             Trail trail;
             trail.trail_id = result[0]["trail_id"].as<int>();
             trail.trail_name = result[0]["trail_name"].as<std::string>();
             trail.trail_start = result[0]["trail_start"].as<std::string>();
             trail.trail_end = result[0]["trail_end"].as<std::string>();
-            trail.trail_checkpoint_id = result[0]["trail_checkpoint_id"].as<int>();
+            
+            crow::json::wvalue trail_json;
+            trail_json["trail_id"] = trail.trail_id;
+            trail_json["trail_name"] = trail.trail_name;
+            trail_json["trail_start"] = trail.trail_start;
+            trail_json["trail_end"] = trail.trail_end;
+            
+            
 
-            crow::response response{trail};
+            crow::response response{trail_json};
             response.code = 200;
             response.set_header("Content-Type", "application/json");
             return response;
@@ -827,7 +833,7 @@ int main()
             trail.trail_name = std::string(json_payload["trail_name"].s());
             trail.trail_start = std::string(json_payload["trail_start"].s());
             trail.trail_end = std::string(json_payload["trail_end"].s());
-            trail.trail_checkpoint_id = json_payload["trail_checkpoint_id"].i();
+            
 
             // Start outer transaction
             pqxx::work txn(conn);
@@ -843,12 +849,12 @@ int main()
             pqxx::subtransaction update_txn(txn, "update");
 
             // Update trail
-            pqxx::result result = update_txn.exec_params("UPDATE trails SET trail_name = $2, trail_start = $3, trail_end = $4, trail_checkpoint_id = $5 WHERE trail_id = $1 RETURNING trail_id",
+            pqxx::result result = update_txn.exec_params("UPDATE trails SET trail_name = $2, trail_start = $3, trail_end = $4 WHERE trail_id = $1 RETURNING trail_id",
                                                    trail.trail_id,
                                                    trail.trail_name,
                                                    trail.trail_start,
-                                                   trail.trail_end,
-                                                   trail.trail_checkpoint_id);
+                                                   trail.trail_end
+                                                   );
             update_txn.commit();
 
             // Commit outer transaction
@@ -880,7 +886,7 @@ int main()
        
         try {
             pqxx::work txn(conn);
-            pqxx::result result = txn.exec_params("WITH deleted_completed AS (DELETE FROM completed WHERE completed_trail_id = $1 RETURNING completed_trail_id) DELETE FROM trails WHERE trail_id = $1 RETURNING trail_id, trail_name, trail_start, trail_end, trail_checkpoint_id", trail_id);
+            pqxx::result result = txn.exec_params("WITH deleted_completed AS (DELETE FROM completed WHERE completed_trail_id = $1 RETURNING completed_trail_id) DELETE FROM trails WHERE trail_id = $1 RETURNING trail_id, trail_name, trail_start, trail_end", trail_id);
             txn.commit();
 
             if (result.empty()) {
@@ -896,12 +902,12 @@ int main()
             trail.trail_name = result[0]["trail_name"].as<std::string>();
             trail.trail_start = result[0]["trail_start"].as<std::string>();
             trail.trail_end = result[0]["trail_end"].as<std::string>();
-            trail.trail_checkpoint_id = result[0]["trail_checkpoint_id"].as<int>();
+            
 
             crow::json::wvalue json_data;
             json_data["trail_id"] = result[0]["trail_id"].as<int>();
 
-            crow::response response{"Operation Sucessful",json_data};
+            crow::response response{json_data};
             response.code = 200;
             response.set_header("Content-Type", "application/json");
         } catch (const std::exception& e) {
@@ -912,6 +918,7 @@ int main()
             response.set_header("Content-Type", "text/plain");
             return response;
         }
+        
     });
 
 /*                                                         AREAS ROUTES                                     */
