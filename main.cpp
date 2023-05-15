@@ -1113,7 +1113,7 @@ CROW_ROUTE(app, "/checkpoints")
                 checkpoint.checkpoint_gps = row["checkpoint_id"].as<std::string>();
                 crow::json::wvalue checkpoint_json;
                 checkpoint_json["checkpoint_id"] = checkpoint.checkpoint_id;
-                checkpoint_json["checkpoint_gps"] = checkpoint.checkpoint_gps
+                checkpoint_json["checkpoint_gps"] = checkpoint.checkpoint_gps;
                
                 json_data[checkpoint.checkpoint_id] = std::move(checkpoint_json);
             }
@@ -1203,7 +1203,7 @@ CROW_ROUTE(app, "/checkpoints")
             // Update checkpoint
             pqxx::result result = update_txn.exec_params("UPDATE checkpoints SET c, checkpoint_gps = $2 WHERE checkpoint_id = $1 RETURNING checkpoint_id",
                                                    checkpoint_id,
-                                                   json_payload["checkpoint_gps"].as<std::string>()
+                                                   std::string(json_payload["checkpoint_gps"].s())
                                                    );
             update_txn.commit();
 
@@ -1306,54 +1306,6 @@ CROW_ROUTE(app, "/checkpoints/<int>")
         }
     });
 
-    CROW_ROUTE(app, "/challenges/<int>")
-    .methods("GET"_method)
-    ([&](const crow::request& req, int challenge_id) {
-        pqxx::connection conn(conn_string);
-        try {
-            // Check if challenge exists
-            pqxx::work txn(conn);
-            pqxx::result result = txn.exec_params("SELECT challenge_id, challenge_name, challenge_gps, challenge_points, challenge_trail_id, challenge_area_id FROM challenges WHERE challenge_id = $1", challenge_id);
-            txn.commit();
-
-            // If challenge doesn't exist, return 404 response
-            if (result.empty()) {
-                crow::response response;
-                response.code = 404;
-                response.body = "Challenge not found";
-                response.set_header("Content-Type", "text/plain");
-                return response;
-            }
-
-            // Extract challenge data and construct response
-            int id = result[0]["challenge_id"].as<int>();
-            std::string name = result[0]["challenge_name"].as<std::string>();
-            std::string gps = result[0]["challenge_gps"].as<std::string>();
-            int points = result[0]["challenge_points"].as<int>();
-            int trail_id = result[0]["challenge_trail_id"].as<int>();
-            int area_id = result[0]["challenge_area_id"].as<int>();
-
-            crow::json::wvalue json_data;
-            json_data["challenge_id"] = id;
-            json_data["challenge_name"] = name;
-            json_data["challenge_gps"] = gps;
-            json_data["challenge_points"] = points;
-            json_data["challenge_trail_id"] = trail_id;
-            json_data["challenge_area_id"] = area_id;
-
-            crow::response response{json_data};
-            response.code = 200;
-            response.set_header("Content-Type", "application/json");
-            return response;
-        } catch (const std::exception& e) {
-            crow::response response;
-            response.code = 500;
-            response.body = e.what();
-            response.set_header("Content-Type", "text/plain");
-            return response;
-        }
-    });
-
     CROW_ROUTE(app, "/challenges")
     .methods("PUT"_method)
     ([&](const crow::request& req){
@@ -1411,6 +1363,56 @@ CROW_ROUTE(app, "/checkpoints/<int>")
             return response;
         }
     });
+
+    CROW_ROUTE(app, "/challenges/<int>")
+    .methods("GET"_method)
+    ([&](const crow::request& req, int challenge_id) {
+        pqxx::connection conn(conn_string);
+        try {
+            // Check if challenge exists
+            pqxx::work txn(conn);
+            pqxx::result result = txn.exec_params("SELECT challenge_id, challenge_name, challenge_gps, challenge_points, challenge_trail_id, challenge_area_id FROM challenges WHERE challenge_id = $1", challenge_id);
+            txn.commit();
+
+            // If challenge doesn't exist, return 404 response
+            if (result.empty()) {
+                crow::response response;
+                response.code = 404;
+                response.body = "Challenge not found";
+                response.set_header("Content-Type", "text/plain");
+                return response;
+            }
+
+            // Extract challenge data and construct response
+            int id = result[0]["challenge_id"].as<int>();
+            std::string name = result[0]["challenge_name"].as<std::string>();
+            std::string gps = result[0]["challenge_gps"].as<std::string>();
+            int points = result[0]["challenge_points"].as<int>();
+            int trail_id = result[0]["challenge_trail_id"].as<int>();
+            int area_id = result[0]["challenge_area_id"].as<int>();
+
+            crow::json::wvalue json_data;
+            json_data["challenge_id"] = id;
+            json_data["challenge_name"] = name;
+            json_data["challenge_gps"] = gps;
+            json_data["challenge_points"] = points;
+            json_data["challenge_trail_id"] = trail_id;
+            json_data["challenge_area_id"] = area_id;
+
+            crow::response response{json_data};
+            response.code = 200;
+            response.set_header("Content-Type", "application/json");
+            return response;
+        } catch (const std::exception& e) {
+            crow::response response;
+            response.code = 500;
+            response.body = e.what();
+            response.set_header("Content-Type", "text/plain");
+            return response;
+        }
+    });
+
+    
 
     CROW_ROUTE(app, "/challenges/<int>")
     .methods("DELETE"_method)
