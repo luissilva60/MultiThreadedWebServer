@@ -4,8 +4,8 @@
 
 #include <crow/logging.h>
 
-#include<chrono>
-#include<iomanip>
+#include <chrono>
+#include <iomanip>
 #include <fstream>
 #include <signal.h>
 #include <unistd.h>
@@ -14,7 +14,8 @@
 #include <iostream>
 #include <pqxx/pqxx>
 #include <nlohmann/json.hpp>
-
+#include <ctime>
+#include <string>
 using namespace std;
 using namespace pqxx;
 
@@ -22,18 +23,53 @@ using namespace pqxx;
 std::string conn_string ="";
 using json = nlohmann::json;
 
+std::ofstream log_file;
+
+class FileLogHandler : public crow::ILogHandler {
+public:
+  FileLogHandler(std::ofstream& file) : log_file(file) {}
+
+  void log(std::string message, crow::LogLevel level) override {
+    auto now = std::chrono::system_clock::now();
+    std::time_t current_time = std::chrono::system_clock::to_time_t(now);
+    std::string time_str = std::ctime(&current_time);
+    // Remove the trailing newline character from the time string
+    time_str.erase(std::remove(time_str.begin(), time_str.end(), '\n'), time_str.end());
+
+    std::string level_str;
+  switch (level) {
+    case crow::LogLevel::Debug:
+      level_str = "[DEBUG]";
+      break;
+    case crow::LogLevel::Info:
+      level_str = "[INFO]";
+      break;
+    case crow::LogLevel::Warning:
+      level_str = "[WARNING]";
+      break;
+    case crow::LogLevel::Error:
+      level_str = "[ERROR]";
+      break;
+    case crow::LogLevel::CRITICAL:
+      level_str = "CRITICAL";
+      break;
+    default:
+      level_str = "UNKNOWN";
+      break;
+  }
+    log_file << time_str << " " << level_str << " " << message << std::endl;
+  }
+
+private:
+  std::ofstream& log_file;
+};
+
 void doSomething(int i) {
-    std::cout << "Thread " << i << " is doing something..." << std::endl;
+    CROW_LOG_INFO << "Thread " << i << " is doing something..." ;
     std::this_thread::sleep_for(std::chrono::seconds(1)); // simulate some work
-    std::cout << "Thread " << i << " has finished doing something." << std::endl;
+    CROW_LOG_INFO << "Thread " << i << " has finished doing something." ;
 }
 
-class ExampleLogHandler : public crow::ILogHandler {
-    public:
-        void log(std::string /*message*/, crow::LogLevel /*level*/) override {
-//            cerr << "ExampleLogHandler -> " << message;
-        }
-};
 struct User {
     int user_id;
     std::string user_name;
@@ -123,6 +159,35 @@ struct ExampleMiddleware  {
 int main()
 {
     std::string sql;
+
+    // Get the current date and time
+    auto now1 = std::chrono::system_clock::now();
+    std::time_t current_time = std::chrono::system_clock::to_time_t(now1);
+
+    // Create a formatted string with the current date and time
+    std::stringstream filename_ss;
+    filename_ss << "logs/CROW-BUILD-" << std::put_time(std::localtime(&current_time), "%d-%m-%Y, %H:%M:%S") << ".txt";
+    std::string filename = filename_ss.str();
+
+    // Open the log file for writing
+    log_file.open(filename);
+
+    if (!log_file.is_open()) {
+        std::cerr << "Failed to open log file." << std::endl;
+        return -1;
+    }
+
+    // Create the custom log handler
+    FileLogHandler file_log_handler(log_file);
+
+    // Configure Crow to use the custom log handler
+    crow::logger::setHandler(&file_log_handler);
+    std::signal(SIGINT, [](int) {
+    if (log_file.is_open()) {
+        log_file.close();
+    }
+    std::exit(0);
+    });
     try{
         // Set up connection parameters
         std::string host = "ec2-54-76-132-202.eu-west-1.compute.amazonaws.com";
@@ -163,7 +228,8 @@ int main()
         return 1;
    }
     
-    
+    // Create the logger object
+    //Logger logger("crow");
     const size_t num_threads = 10;
     asio::thread_pool thread_pool(num_threads);
     crow::App<ExampleMiddleware> app(&thread_pool);
@@ -179,7 +245,7 @@ int main()
     // added for timestamp
     std::time_t now = std::chrono::system_clock::to_time_t(start);
 
-    std::cout << "Starting threads at " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S") << std::endl;
+    CROW_LOG_INFO << "Starting threads at " << std::put_time(std::localtime(&now), "%Y-%m-%d %H:%M:%S");
 
     for (int i = 0; i < num_threads; i++)
     {
@@ -280,7 +346,7 @@ int main()
             pqxx::result result = txn.exec("SELECT user_id, user_name, user_password, user_email, user_gps, user_role_id FROM users");
             txn.commit();
 
-            crow::json::wvalue json_data;
+            crow::json::wvalue json_data = crow::json::wvalue(crow::json::type::Object);
             for (const auto& row : result) {
                 User user;
                 user.user_id = row["user_id"].as<int>();
@@ -290,6 +356,7 @@ int main()
                 user.user_gps = row["user_gps"].as<std::string>();
                 user.user_role_id = row["user_role_id"].as<int>();
 
+
                 crow::json::wvalue user_json;
                 user_json["user_id"] = user.user_id;
                 user_json["user_name"] = user.user_name;
@@ -297,7 +364,9 @@ int main()
                 user_json["user_email"] = user.user_email;
                 user_json["user_gps"] = user.user_gps;
                 user_json["user_role_id"] = user.user_role_id;
-                json_data[user.user_id] = std::move(user_json);
+                if (!row["user_id"].is_null()) {
+                    json_data[std::to_string(user.user_id)] = std::move(user_json);
+                }
             }
 
             crow::response response{json_data};
@@ -910,6 +979,8 @@ int main()
             crow::response response{json_data};
             response.code = 200;
             response.set_header("Content-Type", "application/json");
+
+            return response;
         } catch (const std::exception& e) {
             crow::response response;
             response.code = 500;
@@ -917,8 +988,7 @@ int main()
            
             response.set_header("Content-Type", "text/plain");
             return response;
-        }
-        
+        } 
     });
 
 /*                                                         AREAS ROUTES                                     */
@@ -1306,64 +1376,7 @@ CROW_ROUTE(app, "/checkpoints/<int>")
         }
     });
 
-    CROW_ROUTE(app, "/challenges")
-    .methods("PUT"_method)
-    ([&](const crow::request& req){
-        pqxx::connection conn(conn_string);
-       
-        try {
-            // Parse JSON payload
-            auto json_payload = crow::json::load(req.body);
-            if (!json_payload) {
-                throw std::runtime_error("Invalid JSON payload");
-            }
-
-            // Extract challenge ID from payload
-            int challenge_id = json_payload["challenge_id"].i();
-
-            // Start outer transaction
-            pqxx::work txn(conn);
-
-            // Check if challenge exists
-            pqxx::result check_result = txn.exec_params("SELECT COUNT(*) FROM challenges WHERE challenge_id = $1", challenge_id);
-            int count = check_result[0]["count"].as<int>();
-            if (count == 0) {
-                throw std::runtime_error("Challenge not found");
-            }
-
-            // Start inner transaction for update
-            pqxx::subtransaction update_txn(txn, "update");
-
-            // Update challenge
-            pqxx::result result = update_txn.exec_params("UPDATE challenges SET challenge_name = $2, challenge_gps = $3, challenge_points = $4, challenge_trail_id = $5, challenge_area_id = $6 WHERE challenge_id = $1 RETURNING challenge_id",
-                                                   challenge_id,
-                                                   std::string(json_payload["challenge_name"].s()),
-                                                   json_payload["challenge_gps"].s(),
-                                                   json_payload["challenge_points"].i(),
-                                                   json_payload["challenge_trail_id"].i(),
-                                                   json_payload["challenge_area_id"].i());
-            update_txn.commit();
-
-            // Commit outer transaction
-            txn.commit();
-
-            crow::json::wvalue json_data;
-            json_data["challenge_id"] = result[0]["challenge_id"].as<int>();
-
-            crow::response response{json_data};
-            response.code = 200;
-            response.set_header("Content-Type", "application/json");
-            return response;
-        } catch (const std::exception& e) {
-            conn.disconnect();
-            crow::response response;
-            response.code = 500;
-            response.body = e.what();
-            response.set_header("Content-Type", "text/plain");
-            return response;
-        }
-    });
-
+    
     CROW_ROUTE(app, "/challenges/<int>")
     .methods("GET"_method)
     ([&](const crow::request& req, int challenge_id) {
@@ -1544,8 +1557,12 @@ CROW_ROUTE(app, "/checkpoints/<int>")
     ([]{
         return std::string(512*1024, ' ');
     });
-
+    
     // enables all log
+    //ExampleLogHandler logHandler;
+    //ExampleLogHandler::logHandlerPtr_ = &logHandler;
+    
+    
     app.loglevel(crow::LogLevel::DEBUG);
     //crow::logger::setHandler(std::make_shared<ExampleLogHandler>());
 
@@ -1553,6 +1570,9 @@ CROW_ROUTE(app, "/checkpoints/<int>")
         .concurrency(num_threads)
         //.ssl_file("cert.crt", "private.key")
         .run();
+
+    //logHandler.flush();
+    //logHandler.close();
 
     
 

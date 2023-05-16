@@ -1,0 +1,155 @@
+Tue May 16 22:26:10 2023 [INFO] Starting threads at 2023-05-16 22:26:10
+Tue May 16 22:26:10 2023 [INFO] Thread 0 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Thread 1 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Thread 2 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Thread 3 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Thread 4 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Thread 5 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Thread 6 is doing something...
+Tue May 16 22:26:10 2023 [INFO] All threads finished at 2023-05-16 22:26:10
+Tue May 16 22:26:10 2023 [INFO] Elapsed time: 0.000314159 seconds
+Tue May 16 22:26:10 2023 [INFO] Thread 7 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Thread 8 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Thread 9 is doing something...
+Tue May 16 22:26:10 2023 [INFO] Crow/master server is running at http://0.0.0.0:18080 using 10 threads
+Tue May 16 22:26:10 2023 [INFO] Call `app.loglevel(crow::LogLevel::Warning)` to hide Info level logs.
+Tue May 16 22:26:10 2023 [DEBUG] 0x5555557b7f10 {0} queue length: 1
+Tue May 16 22:26:11 2023 [INFO] Thread 0 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 0 finished in 1000 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 1 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 1 finished in 1000 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 2 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 2 finished in 1000 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 3 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 3 finished in 1001 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 4 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 4 finished in 1001 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 5 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 5 finished in 1001 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 6 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 6 finished in 1001 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 7 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 7 finished in 1000 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 8 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 8 finished in 1000 milliseconds
+Tue May 16 22:26:11 2023 [INFO] Thread 9 has finished doing something.
+Tue May 16 22:26:11 2023 [INFO] Thread 9 finished in 1000 milliseconds
+Tue May 16 22:26:36 2023 [DEBUG] 0x5555556df6f0 timer cancelled: 0x7ffff1c533f0 0
+Tue May 16 22:26:36 2023 [DEBUG] task_timer cancelled: 0x7ffff1c533f0 0
+Tue May 16 22:26:36 2023 [DEBUG] task_timer scheduled: 0x7ffff1c533f0 1
+Tue May 16 22:26:36 2023 [DEBUG] 0x5555556df6f0 timer added: 0x7ffff1c533f0 1
+Tue May 16 22:26:36 2023 [DEBUG] 0x5555556df6f0 timer cancelled: 0x7ffff1c533f0 1
+Tue May 16 22:26:36 2023 [DEBUG] task_timer cancelled: 0x7ffff1c533f0 1
+Tue May 16 22:26:36 2023 [INFO] Request: 10.0.2.2:59745 0x5555556df6f0 HTTP/1.1 GET /users
+Tue May 16 22:26:36 2023 [INFO] [REQUEST] GET /users FROM 10.0.2.2 ON THREAD 140737249629760
+Tue May 16 22:26:36 2023 [DEBUG] Matched rule '/users' 1 / 2
+Tue May 16 22:26:36 2023 [DEBUG] 0x5555557cdcb0 {1} queue length: 1
+Tue May 16 22:26:36 2023 [DEBUG] 0x5555557aba50 {2} queue length: 1
+Tue May 16 22:26:36 2023 [DEBUG] 0x7fffd800bbd0 timer cancelled: 0x7ffff14523f0 0
+Tue May 16 22:26:36 2023 [DEBUG] task_timer cancelled: 0x7ffff14523f0 0
+Tue May 16 22:26:36 2023 [DEBUG] task_timer scheduled: 0x7ffff14523f0 1
+Tue May 16 22:26:36 2023 [DEBUG] 0x7fffd800bbd0 timer added: 0x7ffff14523f0 1
+Tue May 16 22:26:37 2023 [INFO] Response: 0x5555556df6f0 /users 200 0
+Tue May 16 22:26:37 2023 [INFO] [RESPONSE] 200 GET /users FROM 10.0.2.2 IN 0.413335 SECONDS
+Tue May 16 22:26:37 2023 [DEBUG] 0x5555556df6f0 timer cancelled: 0x7ffff1c533f0 1
+Tue May 16 22:26:37 2023 [DEBUG] task_timer cancelled: 0x7ffff1c533f0 1
+Tue May 16 22:26:37 2023 [DEBUG] task_timer scheduled: 0x7ffff1c533f0 2
+Tue May 16 22:26:37 2023 [DEBUG] 0x5555556df6f0 timer added: 0x7ffff1c533f0 2
+Tue May 16 22:26:39 2023 [DEBUG] 0x5555556df6f0 timer cancelled: 0x7ffff1c533f0 2
+Tue May 16 22:26:39 2023 [DEBUG] task_timer cancelled: 0x7ffff1c533f0 2
+Tue May 16 22:26:39 2023 [INFO] Request: 10.0.2.2:59745 0x5555556df6f0 HTTP/1.1 GET /users
+Tue May 16 22:26:39 2023 [INFO] [REQUEST] GET /users FROM 10.0.2.2 ON THREAD 140737249629760
+Tue May 16 22:26:39 2023 [DEBUG] Matched rule '/users' 1 / 2
+Tue May 16 22:26:40 2023 [INFO] Response: 0x5555556df6f0 /users 200 0
+Tue May 16 22:26:40 2023 [INFO] [RESPONSE] 200 GET /users FROM 10.0.2.2 IN 0.43842 SECONDS
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556df6f0 timer cancelled: 0x7ffff1c533f0 2
+Tue May 16 22:26:40 2023 [DEBUG] task_timer cancelled: 0x7ffff1c533f0 2
+Tue May 16 22:26:40 2023 [DEBUG] task_timer scheduled: 0x7ffff1c533f0 3
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556df6f0 timer added: 0x7ffff1c533f0 3
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556df6f0 timer cancelled: 0x7ffff1c533f0 3
+Tue May 16 22:26:40 2023 [DEBUG] task_timer cancelled: 0x7ffff1c533f0 3
+Tue May 16 22:26:40 2023 [INFO] Request: 10.0.2.2:59745 0x5555556df6f0 HTTP/1.1 GET /users
+Tue May 16 22:26:40 2023 [INFO] [REQUEST] GET /users FROM 10.0.2.2 ON THREAD 140737249629760
+Tue May 16 22:26:40 2023 [DEBUG] Matched rule '/users' 1 / 2
+Tue May 16 22:26:40 2023 [DEBUG] 0x7fffd800bbd0 timer cancelled: 0x7ffff14523f0 1
+Tue May 16 22:26:40 2023 [DEBUG] task_timer cancelled: 0x7ffff14523f0 1
+Tue May 16 22:26:40 2023 [INFO] Request: 10.0.2.2:59746 0x7fffd800bbd0 HTTP/1.1 GET /users
+Tue May 16 22:26:40 2023 [INFO] [REQUEST] GET /users FROM 10.0.2.2 ON THREAD 140737241237056
+Tue May 16 22:26:40 2023 [DEBUG] Matched rule '/users' 1 / 2
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556a6e30 {3} queue length: 1
+Tue May 16 22:26:40 2023 [DEBUG] 0x7fffd800d020 timer cancelled: 0x7ffff0c513f0 0
+Tue May 16 22:26:40 2023 [DEBUG] task_timer cancelled: 0x7ffff0c513f0 0
+Tue May 16 22:26:40 2023 [DEBUG] task_timer scheduled: 0x7ffff0c513f0 1
+Tue May 16 22:26:40 2023 [DEBUG] 0x7fffd800d020 timer added: 0x7ffff0c513f0 1
+Tue May 16 22:26:40 2023 [INFO] Response: 0x5555556df6f0 /users 200 0
+Tue May 16 22:26:40 2023 [INFO] [RESPONSE] 200 GET /users FROM 10.0.2.2 IN 0.559619 SECONDS
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556df6f0 timer cancelled: 0x7ffff1c533f0 3
+Tue May 16 22:26:40 2023 [DEBUG] task_timer cancelled: 0x7ffff1c533f0 3
+Tue May 16 22:26:40 2023 [DEBUG] task_timer scheduled: 0x7ffff1c533f0 4
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556df6f0 timer added: 0x7ffff1c533f0 4
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556df6f0 timer cancelled: 0x7ffff1c533f0 4
+Tue May 16 22:26:40 2023 [DEBUG] task_timer cancelled: 0x7ffff1c533f0 4
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556df6f0 from read(1) with description: "success"
+Tue May 16 22:26:40 2023 [DEBUG] 0x5555556df6f0 is_reading 0 is_writing 1
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800d020 timer cancelled: 0x7ffff0c513f0 1
+Tue May 16 22:26:41 2023 [DEBUG] task_timer cancelled: 0x7ffff0c513f0 1
+Tue May 16 22:26:41 2023 [INFO] Request: 10.0.2.2:59749 0x7fffd800d020 HTTP/1.1 GET /users
+Tue May 16 22:26:41 2023 [INFO] [REQUEST] GET /users FROM 10.0.2.2 ON THREAD 140737232844352
+Tue May 16 22:26:41 2023 [DEBUG] Matched rule '/users' 1 / 2
+Tue May 16 22:26:41 2023 [DEBUG] 0x5555557768b0 {4} queue length: 1
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd801a740 timer cancelled: 0x7fffd3ffd3f0 0
+Tue May 16 22:26:41 2023 [DEBUG] task_timer cancelled: 0x7fffd3ffd3f0 0
+Tue May 16 22:26:41 2023 [DEBUG] task_timer scheduled: 0x7fffd3ffd3f0 1
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd801a740 timer added: 0x7fffd3ffd3f0 1
+Tue May 16 22:26:41 2023 [INFO] Response: 0x7fffd800bbd0 /users 200 0
+Tue May 16 22:26:41 2023 [INFO] [RESPONSE] 200 GET /users FROM 10.0.2.2 IN 0.544909 SECONDS
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800bbd0 timer cancelled: 0x7ffff14523f0 1
+Tue May 16 22:26:41 2023 [DEBUG] task_timer cancelled: 0x7ffff14523f0 1
+Tue May 16 22:26:41 2023 [DEBUG] task_timer scheduled: 0x7ffff14523f0 2
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800bbd0 timer added: 0x7ffff14523f0 2
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800bbd0 timer cancelled: 0x7ffff14523f0 2
+Tue May 16 22:26:41 2023 [DEBUG] task_timer cancelled: 0x7ffff14523f0 2
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800bbd0 from read(1) with description: "success"
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800bbd0 is_reading 0 is_writing 1
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd801a740 timer cancelled: 0x7fffd3ffd3f0 1
+Tue May 16 22:26:41 2023 [DEBUG] task_timer cancelled: 0x7fffd3ffd3f0 1
+Tue May 16 22:26:41 2023 [INFO] Request: 10.0.2.2:59750 0x7fffd801a740 HTTP/1.1 GET /users
+Tue May 16 22:26:41 2023 [INFO] [REQUEST] GET /users FROM 10.0.2.2 ON THREAD 140736750155328
+Tue May 16 22:26:41 2023 [DEBUG] Matched rule '/users' 1 / 2
+Tue May 16 22:26:41 2023 [DEBUG] 0x555555799f80 {5} queue length: 1
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd8017e80 timer cancelled: 0x7fffd37fc3f0 0
+Tue May 16 22:26:41 2023 [DEBUG] task_timer cancelled: 0x7fffd37fc3f0 0
+Tue May 16 22:26:41 2023 [DEBUG] task_timer scheduled: 0x7fffd37fc3f0 1
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd8017e80 timer added: 0x7fffd37fc3f0 1
+Tue May 16 22:26:41 2023 [INFO] Response: 0x7fffd800d020 /users 200 0
+Tue May 16 22:26:41 2023 [INFO] [RESPONSE] 200 GET /users FROM 10.0.2.2 IN 0.531711 SECONDS
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800d020 timer cancelled: 0x7ffff0c513f0 1
+Tue May 16 22:26:41 2023 [DEBUG] task_timer cancelled: 0x7ffff0c513f0 1
+Tue May 16 22:26:41 2023 [DEBUG] task_timer scheduled: 0x7ffff0c513f0 2
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800d020 timer added: 0x7ffff0c513f0 2
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800d020 timer cancelled: 0x7ffff0c513f0 2
+Tue May 16 22:26:41 2023 [DEBUG] task_timer cancelled: 0x7ffff0c513f0 2
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800d020 from read(1) with description: "success"
+Tue May 16 22:26:41 2023 [DEBUG] 0x7fffd800d020 is_reading 0 is_writing 1
+Tue May 16 22:26:42 2023 [INFO] Response: 0x7fffd801a740 /users 200 0
+Tue May 16 22:26:42 2023 [INFO] [RESPONSE] 200 GET /users FROM 10.0.2.2 IN 0.630243 SECONDS
+Tue May 16 22:26:42 2023 [DEBUG] 0x7fffd801a740 timer cancelled: 0x7fffd3ffd3f0 1
+Tue May 16 22:26:42 2023 [DEBUG] task_timer cancelled: 0x7fffd3ffd3f0 1
+Tue May 16 22:26:42 2023 [DEBUG] task_timer scheduled: 0x7fffd3ffd3f0 2
+Tue May 16 22:26:42 2023 [DEBUG] 0x7fffd801a740 timer added: 0x7fffd3ffd3f0 2
+Tue May 16 22:26:47 2023 [DEBUG] task_timer called: 0x7fffd37fc3f0 1
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd8017e80 timer cancelled: 0x7fffd37fc3f0 1
+Tue May 16 22:26:47 2023 [DEBUG] task_timer cancelled: 0x7fffd37fc3f0 1
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd8017e80 from read(1) with description: "success"
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd8017e80 is_reading 0 is_writing 0
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd8017e80 delete (idle) (queue length: 0)
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd8017e80 timer cancelled: 0x7fffd37fc3f0 1
+Tue May 16 22:26:47 2023 [DEBUG] task_timer cancelled: 0x7fffd37fc3f0 1
+Tue May 16 22:26:47 2023 [DEBUG] task_timer called: 0x7fffd3ffd3f0 2
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd801a740 timer cancelled: 0x7fffd3ffd3f0 2
+Tue May 16 22:26:47 2023 [DEBUG] task_timer cancelled: 0x7fffd3ffd3f0 2
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd801a740 from read(1) with description: "success"
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd801a740 is_reading 0 is_writing 0
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd801a740 delete (idle) (queue length: 0)
+Tue May 16 22:26:47 2023 [DEBUG] 0x7fffd801a740 timer cancelled: 0x7fffd3ffd3f0 2
+Tue May 16 22:26:47 2023 [DEBUG] task_timer cancelled: 0x7fffd3ffd3f0 2
